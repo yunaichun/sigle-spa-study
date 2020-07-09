@@ -27,6 +27,7 @@ export function shouldBeActive(app) {
   }
 }
 
+// == 返回 app 的 name
 export function toName(app) {
   return app.name;
 }

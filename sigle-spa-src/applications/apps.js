@@ -40,6 +40,7 @@ export function registerApplication(
     customProps
   );
 
+  // == 不能注册两个相同的应用
   if (getAppNames().indexOf(registration.name) !== -1)
     throw Error(
       formatErrorMessage(
@@ -50,6 +51,7 @@ export function registerApplication(
       )
     );
 
+  // == 往 apps 塞进去注册的子应用
   apps.push(
     assign(
       {
@@ -67,13 +69,14 @@ export function registerApplication(
     )
   );
 
+  // == 如果在浏览器环境
   if (isInBrowser) {
     ensureJQuerySupport();
     reroute();
   }
 }
 
-// == 规范化传递的参数
+// == 校验和规范化传递的参数
 function sanitizeArguments(
   appNameOrConfig,
   appOrLoadApp,
@@ -90,13 +93,14 @@ function sanitizeArguments(
   };
 
   if (usingObjectAPI) {
-    // == 可以直接以一个对象传递参数
+    // == 先校验传递的参数：可以直接以一个对象传递参数
     validateRegisterWithConfig(appNameOrConfig);
     registration.name = appNameOrConfig.name;
     registration.loadApp = appNameOrConfig.app;
     registration.activeWhen = appNameOrConfig.activeWhen;
     registration.customProps = appNameOrConfig.customProps;
   } else {
+    // == 先校验传递的参数：分散传入
     validateRegisterWithArguments(
       appNameOrConfig,
       appOrLoadApp,
@@ -110,8 +114,8 @@ function sanitizeArguments(
   }
 
   registration.loadApp = sanitizeLoadApp(registration.loadApp);
-  registration.customProps = sanitizeCustomProps(registration.customProps);
   registration.activeWhen = sanitizeActiveWhen(registration.activeWhen);
+  registration.customProps = sanitizeCustomProps(registration.customProps);
 
   return registration;
 }
@@ -253,6 +257,107 @@ function validCustomProps(customProps) {
   );
 }
 
+// == 保证 appOrLoadApp 为一个函数组件
+function sanitizeLoadApp(loadApp) {
+  if (typeof loadApp !== "function") {
+    return () => Promise.resolve(loadApp);
+  }
+
+  return loadApp;
+}
+
+// == 将 activeWhen 字符串或者函数转换为数组
+function sanitizeActiveWhen(activeWhen) {
+  let activeWhenArray = Array.isArray(activeWhen) ? activeWhen : [activeWhen];
+  activeWhenArray = activeWhenArray.map((activeWhenOrPath) =>
+    typeof activeWhenOrPath === "function"
+      ? activeWhenOrPath // == activeWhenOrPath 为函数
+      : pathToActiveWhen(activeWhenOrPath) // == activeWhenOrPath 为字符串
+  );
+
+  // == 返回一个函数，也就是只要存在一个匹配的浏览器路由即返回 true
+  return (location) =>
+    activeWhenArray.some((activeWhen) => activeWhen(location));
+}
+
+// == 保证 customProps 为一个对象
+function sanitizeCustomProps(customProps) {
+  return customProps ? customProps : {};
+}
+
+// == activeWhen 为字符串的时候：我们需要判断当前页面是否匹配上此路由
+export function pathToActiveWhen(path) {
+  const regex = toDynamicPathValidatorRegex(path);
+
+  return (location) => {
+    // == 拿到当前页面的路由路径
+    const route = location.href.replace(location.origin, "");
+    // == 返回当前页面路由路径是否匹配动态路由
+    return regex.test(route);
+  };
+}
+
+// == activeWhen 为字符串的时候：解析出包含动态路由的正则匹配规则
+export function toDynamicPathValidatorRegex(path) {
+  // == 分析：假如是 /a/:id/b/c
+  // == 1、解析到 :                     将 regexStr = '/a/'
+  // == 2、解析到 :id 后的 /             将 regexStr = '/a/' + ‘[^/]+/?‘
+  // == 3、解析 b/c                     将 regexStr = '/a/' + ‘[^/]+/?‘ + ‘b/c’
+  // == 4、最后一个字符不是 / 结尾         将 regexStr = '/a/' + ‘[^/]+/?‘ + ‘b/c’ + '\/.*'
+  let lastIndex = 0,
+    inDynamic = false,
+    regexStr = "^";
+
+  // == 遍历字符串 activeWhen 的每一个字符
+  for (let charIndex = 0; charIndex < path.length; charIndex++) {
+    const char = path[charIndex];
+    // == 动态路由以 : 开始
+    const startOfDynamic = !inDynamic && char === ":";
+    // == 动态路由以 / 结束
+    const endOfDynamic = inDynamic && char === "/";
+    if (startOfDynamic || endOfDynamic) {
+      appendToRegex(charIndex);
+    }
+  }
+
+  appendToRegex(path.length);
+
+  // == 返回区分大小写的动态路由匹配规则
+  return new RegExp(regexStr, "i");
+
+  function appendToRegex(index) {
+    const anyCharMaybeTrailingSlashRegex = "[^/]+/?";
+    const commonStringSubPath = escapeStrRegex(path.slice(lastIndex, index));
+
+    regexStr += inDynamic
+      ? anyCharMaybeTrailingSlashRegex
+      : commonStringSubPath;
+
+    // == 最后一个字符默认添加上 /
+    if (index === path.length && !inDynamic) {
+      regexStr =
+        // use charAt instead as we could not use es6 method endsWith
+        regexStr.charAt(regexStr.length - 1) === "/"
+          ? `${regexStr}.*$`
+          : `${regexStr}(\/.*)?$`;
+    }
+
+    // == 进入动态路由后开始记录，同时将 lastIndex 重置
+    inDynamic = !inDynamic;
+    lastIndex = index;
+  }
+
+  function escapeStrRegex(str) {
+    // borrowed from https://github.com/sindresorhus/escape-string-regexp/blob/master/index.js
+    return str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
+  }
+}
+
+// == 返回 apps 里的 name
+export function getAppNames() {
+  return apps.map(toName);
+}
+
 export function getAppChanges() {
   const appsToUnload = [],
     appsToUnmount = [],
@@ -300,10 +405,6 @@ export function getAppChanges() {
 
 export function getMountedApps() {
   return apps.filter(isActive).map(toName);
-}
-
-export function getAppNames() {
-  return apps.map(toName);
 }
 
 // used in devtools, not (currently) exposed as a single-spa API
@@ -406,81 +507,4 @@ function immediatelyUnloadApp(app, resolve, reject) {
       });
     })
     .catch(reject);
-}
-
-function sanitizeLoadApp(loadApp) {
-  if (typeof loadApp !== "function") {
-    return () => Promise.resolve(loadApp);
-  }
-
-  return loadApp;
-}
-
-function sanitizeCustomProps(customProps) {
-  return customProps ? customProps : {};
-}
-
-function sanitizeActiveWhen(activeWhen) {
-  let activeWhenArray = Array.isArray(activeWhen) ? activeWhen : [activeWhen];
-  activeWhenArray = activeWhenArray.map((activeWhenOrPath) =>
-    typeof activeWhenOrPath === "function"
-      ? activeWhenOrPath
-      : pathToActiveWhen(activeWhenOrPath)
-  );
-
-  return (location) =>
-    activeWhenArray.some((activeWhen) => activeWhen(location));
-}
-
-export function pathToActiveWhen(path) {
-  const regex = toDynamicPathValidatorRegex(path);
-
-  return (location) => {
-    const route = location.href.replace(location.origin, "");
-    return regex.test(route);
-  };
-}
-
-export function toDynamicPathValidatorRegex(path) {
-  let lastIndex = 0,
-    inDynamic = false,
-    regexStr = "^";
-
-  for (let charIndex = 0; charIndex < path.length; charIndex++) {
-    const char = path[charIndex];
-    const startOfDynamic = !inDynamic && char === ":";
-    const endOfDynamic = inDynamic && char === "/";
-    if (startOfDynamic || endOfDynamic) {
-      appendToRegex(charIndex);
-    }
-  }
-
-  appendToRegex(path.length);
-
-  return new RegExp(regexStr, "i");
-
-  function appendToRegex(index) {
-    const anyCharMaybeTrailingSlashRegex = "[^/]+/?";
-    const commonStringSubPath = escapeStrRegex(path.slice(lastIndex, index));
-
-    regexStr += inDynamic
-      ? anyCharMaybeTrailingSlashRegex
-      : commonStringSubPath;
-
-    if (index === path.length && !inDynamic) {
-      regexStr =
-        // use charAt instead as we could not use es6 method endsWith
-        regexStr.charAt(regexStr.length - 1) === "/"
-          ? `${regexStr}.*$`
-          : `${regexStr}(\/.*)?$`;
-    }
-
-    inDynamic = !inDynamic;
-    lastIndex = index;
-  }
-
-  function escapeStrRegex(str) {
-    // borrowed from https://github.com/sindresorhus/escape-string-regexp/blob/master/index.js
-    return str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
-  }
 }
