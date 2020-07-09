@@ -71,6 +71,7 @@ export function registerApplication(
 
   // == 如果在浏览器环境
   if (isInBrowser) {
+    // == 假如有 jQuery  对包含或不包含 "hashchange" 或 "popstate" 的事件处理
     ensureJQuerySupport();
     reroute();
   }
@@ -266,7 +267,7 @@ function sanitizeLoadApp(loadApp) {
   return loadApp;
 }
 
-// == 将 activeWhen 字符串或者函数转换为数组
+// == 将 activeWhen 字符串或者函数转换为匹配的正则
 function sanitizeActiveWhen(activeWhen) {
   let activeWhenArray = Array.isArray(activeWhen) ? activeWhen : [activeWhen];
   activeWhenArray = activeWhenArray.map((activeWhenOrPath) =>
