@@ -1,4 +1,4 @@
-export { start } from "./start.js";
+export { start } from "./start.js"; // == 主路由初始化挂载
 export { ensureJQuerySupport } from "./jquery-support.js";
 export {
   setBootstrapMaxTime,
@@ -7,7 +7,7 @@ export {
   setUnloadMaxTime,
 } from "./applications/timeouts.js";
 export {
-  registerApplication,
+  registerApplication, // == 主路由注册事件
   getMountedApps,
   getAppStatus,
   unloadApplication,

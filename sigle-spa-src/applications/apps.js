@@ -25,6 +25,234 @@ import { assign } from "../utils/assign";
 
 const apps = [];
 
+// == 主路由注册事件
+export function registerApplication(
+  appNameOrConfig, // == 子应用名称
+  appOrLoadApp, // == 子应用入口文件
+  activeWhen, // == 子应用激活时机
+  customProps // == 自定义属性
+) {
+  // == 规范化传递的参数
+  const registration = sanitizeArguments(
+    appNameOrConfig,
+    appOrLoadApp,
+    activeWhen,
+    customProps
+  );
+
+  if (getAppNames().indexOf(registration.name) !== -1)
+    throw Error(
+      formatErrorMessage(
+        21,
+        __DEV__ &&
+          `There is already an app registered with name ${registration.name}`,
+        registration.name
+      )
+    );
+
+  apps.push(
+    assign(
+      {
+        loadErrorTime: null,
+        status: NOT_LOADED,
+        parcels: {},
+        devtools: {
+          overlays: {
+            options: {},
+            selectors: [],
+          },
+        },
+      },
+      registration
+    )
+  );
+
+  if (isInBrowser) {
+    ensureJQuerySupport();
+    reroute();
+  }
+}
+
+// == 规范化传递的参数
+function sanitizeArguments(
+  appNameOrConfig,
+  appOrLoadApp,
+  activeWhen,
+  customProps
+) {
+  const usingObjectAPI = typeof appNameOrConfig === "object";
+
+  const registration = {
+    name: null,
+    loadApp: null,
+    activeWhen: null,
+    customProps: null,
+  };
+
+  if (usingObjectAPI) {
+    // == 可以直接以一个对象传递参数
+    validateRegisterWithConfig(appNameOrConfig);
+    registration.name = appNameOrConfig.name;
+    registration.loadApp = appNameOrConfig.app;
+    registration.activeWhen = appNameOrConfig.activeWhen;
+    registration.customProps = appNameOrConfig.customProps;
+  } else {
+    validateRegisterWithArguments(
+      appNameOrConfig,
+      appOrLoadApp,
+      activeWhen,
+      customProps
+    );
+    registration.name = appNameOrConfig;
+    registration.loadApp = appOrLoadApp;
+    registration.activeWhen = activeWhen;
+    registration.customProps = customProps;
+  }
+
+  registration.loadApp = sanitizeLoadApp(registration.loadApp);
+  registration.customProps = sanitizeCustomProps(registration.customProps);
+  registration.activeWhen = sanitizeActiveWhen(registration.activeWhen);
+
+  return registration;
+}
+
+// == 校验传递的参数：以对象传入
+export function validateRegisterWithConfig(config) {
+  // == 不能以数组传入
+  if (Array.isArray(config) || config === null)
+    throw Error(
+      formatErrorMessage(
+        39,
+        __DEV__ && "Configuration object can't be an Array or null!"
+      )
+    );
+  const validKeys = ["name", "app", "activeWhen", "customProps"];
+  const invalidKeys = Object.keys(config).reduce(
+    (invalidKeys, prop) =>
+      validKeys.indexOf(prop) >= 0 ? invalidKeys : invalidKeys.concat(prop),
+    []
+  );
+  // == 不能传递非法参数 key
+  if (invalidKeys.length !== 0)
+    throw Error(
+      formatErrorMessage(
+        38,
+        __DEV__ &&
+          `The configuration object accepts only: ${validKeys.join(
+            ", "
+          )}. Invalid keys: ${invalidKeys.join(", ")}.`,
+        validKeys.join(", "),
+        invalidKeys.join(", ")
+      )
+    );
+  // == name 必须要有
+  if (typeof config.name !== "string" || config.name.length === 0)
+    throw Error(
+      formatErrorMessage(
+        20,
+        __DEV__ &&
+          "The config.name on registerApplication must be a non-empty string"
+      )
+    );
+  // == app 必须是一个函数组件
+  if (typeof config.app !== "object" && typeof config.app !== "function")
+    throw Error(
+      formatErrorMessage(
+        20,
+        __DEV__ &&
+          "The config.app on registerApplication must be an application or a loading function"
+      )
+    );
+  
+  const allowsStringAndFunction = (activeWhen) =>
+    typeof activeWhen === "string" || typeof activeWhen === "function";
+  // == activeWhen 必须是字符串（指定路由）或者是函数（多路由）
+  if (
+    !allowsStringAndFunction(config.activeWhen) &&
+    !(
+      Array.isArray(config.activeWhen) &&
+      config.activeWhen.every(allowsStringAndFunction)
+    )
+  )
+    throw Error(
+      formatErrorMessage(
+        24,
+        __DEV__ &&
+          "The config.activeWhen on registerApplication must be a string, function or an array with both"
+      )
+    );
+  // == 校验传入的自定义属性
+  if (!validCustomProps(config.customProps))
+    throw Error(
+      formatErrorMessage(
+        22,
+        __DEV__ && "The optional config.customProps must be an object"
+      )
+    );
+}
+
+// == 校验传递的参数：分散传入
+function validateRegisterWithArguments(
+  name,
+  appOrLoadApp,
+  activeWhen,
+  customProps
+) {
+  // == name 必须要有
+  if (typeof name !== "string" || name.length === 0)
+    throw Error(
+      formatErrorMessage(
+        20,
+        __DEV__ &&
+          `The 1st argument to registerApplication must be a non-empty string 'appName'`
+      )
+    );
+
+  // == app 必须是一个函数组件
+  if (!appOrLoadApp)
+    throw Error(
+      formatErrorMessage(
+        23,
+        __DEV__ &&
+          "The 2nd argument to registerApplication must be an application or loading application function"
+      )
+    );
+
+  // == activeWhen 必须是字符串（指定路由）或者是函数（多路由）
+  if (typeof activeWhen !== "function")
+    throw Error(
+      formatErrorMessage(
+        24,
+        __DEV__ &&
+          "The 3rd argument to registerApplication must be an activeWhen function"
+      )
+    );
+
+  // == 校验传入的自定义属性
+  if (!validCustomProps(customProps))
+    throw Error(
+      formatErrorMessage(
+        22,
+        __DEV__ &&
+          "The optional 4th argument is a customProps and must be an object"
+      )
+    );
+}
+
+// == 校验传入的自定义属性
+function validCustomProps(customProps) {
+  // == 1、不传 customProps
+  // == 2、customProps 为函数
+  // == 3、customProps 为对象
+  return (
+    !customProps ||
+    typeof customProps === "function" ||
+    (typeof customProps === "object" &&
+      customProps !== null &&
+      !Array.isArray(customProps))
+  );
+}
+
 export function getAppChanges() {
   const appsToUnload = [],
     appsToUnmount = [],
@@ -86,52 +314,6 @@ export function getRawAppData() {
 export function getAppStatus(appName) {
   const app = find(apps, (app) => toName(app) === appName);
   return app ? app.status : null;
-}
-
-export function registerApplication(
-  appNameOrConfig,
-  appOrLoadApp,
-  activeWhen,
-  customProps
-) {
-  const registration = sanitizeArguments(
-    appNameOrConfig,
-    appOrLoadApp,
-    activeWhen,
-    customProps
-  );
-
-  if (getAppNames().indexOf(registration.name) !== -1)
-    throw Error(
-      formatErrorMessage(
-        21,
-        __DEV__ &&
-          `There is already an app registered with name ${registration.name}`,
-        registration.name
-      )
-    );
-
-  apps.push(
-    assign(
-      {
-        loadErrorTime: null,
-        status: NOT_LOADED,
-        parcels: {},
-        devtools: {
-          overlays: {
-            options: {},
-            selectors: [],
-          },
-        },
-      },
-      registration
-    )
-  );
-
-  if (isInBrowser) {
-    ensureJQuerySupport();
-    reroute();
-  }
 }
 
 export function checkActivityFunctions(location = window.location) {
@@ -224,167 +406,6 @@ function immediatelyUnloadApp(app, resolve, reject) {
       });
     })
     .catch(reject);
-}
-
-function validateRegisterWithArguments(
-  name,
-  appOrLoadApp,
-  activeWhen,
-  customProps
-) {
-  if (typeof name !== "string" || name.length === 0)
-    throw Error(
-      formatErrorMessage(
-        20,
-        __DEV__ &&
-          `The 1st argument to registerApplication must be a non-empty string 'appName'`
-      )
-    );
-
-  if (!appOrLoadApp)
-    throw Error(
-      formatErrorMessage(
-        23,
-        __DEV__ &&
-          "The 2nd argument to registerApplication must be an application or loading application function"
-      )
-    );
-
-  if (typeof activeWhen !== "function")
-    throw Error(
-      formatErrorMessage(
-        24,
-        __DEV__ &&
-          "The 3rd argument to registerApplication must be an activeWhen function"
-      )
-    );
-
-  if (!validCustomProps(customProps))
-    throw Error(
-      formatErrorMessage(
-        22,
-        __DEV__ &&
-          "The optional 4th argument is a customProps and must be an object"
-      )
-    );
-}
-
-export function validateRegisterWithConfig(config) {
-  if (Array.isArray(config) || config === null)
-    throw Error(
-      formatErrorMessage(
-        39,
-        __DEV__ && "Configuration object can't be an Array or null!"
-      )
-    );
-  const validKeys = ["name", "app", "activeWhen", "customProps"];
-  const invalidKeys = Object.keys(config).reduce(
-    (invalidKeys, prop) =>
-      validKeys.indexOf(prop) >= 0 ? invalidKeys : invalidKeys.concat(prop),
-    []
-  );
-  if (invalidKeys.length !== 0)
-    throw Error(
-      formatErrorMessage(
-        38,
-        __DEV__ &&
-          `The configuration object accepts only: ${validKeys.join(
-            ", "
-          )}. Invalid keys: ${invalidKeys.join(", ")}.`,
-        validKeys.join(", "),
-        invalidKeys.join(", ")
-      )
-    );
-  if (typeof config.name !== "string" || config.name.length === 0)
-    throw Error(
-      formatErrorMessage(
-        20,
-        __DEV__ &&
-          "The config.name on registerApplication must be a non-empty string"
-      )
-    );
-  if (typeof config.app !== "object" && typeof config.app !== "function")
-    throw Error(
-      formatErrorMessage(
-        20,
-        __DEV__ &&
-          "The config.app on registerApplication must be an application or a loading function"
-      )
-    );
-  const allowsStringAndFunction = (activeWhen) =>
-    typeof activeWhen === "string" || typeof activeWhen === "function";
-  if (
-    !allowsStringAndFunction(config.activeWhen) &&
-    !(
-      Array.isArray(config.activeWhen) &&
-      config.activeWhen.every(allowsStringAndFunction)
-    )
-  )
-    throw Error(
-      formatErrorMessage(
-        24,
-        __DEV__ &&
-          "The config.activeWhen on registerApplication must be a string, function or an array with both"
-      )
-    );
-  if (!validCustomProps(config.customProps))
-    throw Error(
-      formatErrorMessage(
-        22,
-        __DEV__ && "The optional config.customProps must be an object"
-      )
-    );
-}
-
-function validCustomProps(customProps) {
-  return (
-    !customProps ||
-    typeof customProps === "function" ||
-    (typeof customProps === "object" &&
-      customProps !== null &&
-      !Array.isArray(customProps))
-  );
-}
-
-function sanitizeArguments(
-  appNameOrConfig,
-  appOrLoadApp,
-  activeWhen,
-  customProps
-) {
-  const usingObjectAPI = typeof appNameOrConfig === "object";
-
-  const registration = {
-    name: null,
-    loadApp: null,
-    activeWhen: null,
-    customProps: null,
-  };
-
-  if (usingObjectAPI) {
-    validateRegisterWithConfig(appNameOrConfig);
-    registration.name = appNameOrConfig.name;
-    registration.loadApp = appNameOrConfig.app;
-    registration.activeWhen = appNameOrConfig.activeWhen;
-    registration.customProps = appNameOrConfig.customProps;
-  } else {
-    validateRegisterWithArguments(
-      appNameOrConfig,
-      appOrLoadApp,
-      activeWhen,
-      customProps
-    );
-    registration.name = appNameOrConfig;
-    registration.loadApp = appOrLoadApp;
-    registration.activeWhen = activeWhen;
-    registration.customProps = customProps;
-  }
-
-  registration.loadApp = sanitizeLoadApp(registration.loadApp);
-  registration.customProps = sanitizeCustomProps(registration.customProps);
-  registration.activeWhen = sanitizeActiveWhen(registration.activeWhen);
-
-  return registration;
 }
 
 function sanitizeLoadApp(loadApp) {
