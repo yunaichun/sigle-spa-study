@@ -18,8 +18,10 @@ export function isActive(app) {
   return app.status === MOUNTED;
 }
 
+// == 子应用是否是激活的状态
 export function shouldBeActive(app) {
   try {
+    // == 子应用上有 activeWhen 的属性，判断当前浏览器路径是否匹配上此子应用的 activeWhen
     return app.activeWhen(window.location);
   } catch (err) {
     handleAppError(err, app, SKIP_BECAUSE_BROKEN);
@@ -32,10 +34,12 @@ export function toName(app) {
   return app.name;
 }
 
+// == appOrParcel.unmountThisParcel 是否为 true
 export function isParcel(appOrParcel) {
   return Boolean(appOrParcel.unmountThisParcel);
 }
 
+// == appOrParcel.unmountThisParcel 是否存在
 export function objectType(appOrParcel) {
   return isParcel(appOrParcel) ? "parcel" : "application";
 }

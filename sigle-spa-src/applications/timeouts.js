@@ -105,15 +105,21 @@ export function setUnloadMaxTime(time, dieOnTimeout, warningMillis) {
   };
 }
 
+// == 轮循 lifecycle 操作
+// == appOrParcel  -  当前子应用对象
+// == lifecycle    -  当前子应用的状态
 export function reasonableTime(appOrParcel, lifecycle) {
   const timeoutConfig = appOrParcel.timeouts[lifecycle];
   const warningPeriod = timeoutConfig.warningMillis;
+  // == appOrParcel.unmountThisParcel 是否存在
   const type = objectType(appOrParcel);
 
+  // == 返回 Promise 对象
   return new Promise((resolve, reject) => {
     let finished = false;
     let errored = false;
 
+    // == 拿到子应用传递的自定义参数 customProps
     appOrParcel[lifecycle](getProps(appOrParcel))
       .then((val) => {
         finished = true;
@@ -127,6 +133,7 @@ export function reasonableTime(appOrParcel, lifecycle) {
     setTimeout(() => maybeTimingOut(1), warningPeriod);
     setTimeout(() => maybeTimingOut(true), timeoutConfig.millis);
 
+    // == 轮循出错的打印
     const errMsg = formatErrorMessage(
       31,
       __DEV__ &&
@@ -139,6 +146,7 @@ export function reasonableTime(appOrParcel, lifecycle) {
       timeoutConfig.millis
     );
 
+    // == 轮循操作
     function maybeTimingOut(shouldError) {
       if (!finished) {
         if (shouldError === true) {

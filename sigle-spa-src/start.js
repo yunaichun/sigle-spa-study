@@ -15,6 +15,7 @@ export function start(opts) {
   }
 }
 
+// == 返回 started 值。初始为 false ，初始化后为 true
 export function isStarted() {
   return started;
 }

@@ -55,8 +55,8 @@ export function registerApplication(
   apps.push(
     assign(
       {
-        loadErrorTime: null,
-        status: NOT_LOADED,
+        loadErrorTime: null, // == 载入错误的话会在 200ms 之后重新载入 
+        status: NOT_LOADED, // == 初始状态均为未载入
         parcels: {},
         devtools: {
           overlays: {
@@ -359,6 +359,8 @@ export function getAppNames() {
   return apps.map(toName);
 }
 
+
+// == 获取未载入、待卸载、待载入、已挂载的子应用
 export function getAppChanges() {
   const appsToUnload = [],
     appsToUnmount = [],
@@ -369,31 +371,41 @@ export function getAppChanges() {
   const currentTime = new Date().getTime();
 
   apps.forEach((app) => {
+    // == 当前浏览器路径是否匹配上此子应用的 activeWhen
     const appShouldBeActive =
       app.status !== SKIP_BECAUSE_BROKEN && shouldBeActive(app);
 
     switch (app.status) {
+      // == 载入错误的子应用
       case LOAD_ERROR:
+        // ===== 200ms 后：加入待载入队列
         if (currentTime - app.loadErrorTime >= 200) {
           appsToLoad.push(app);
         }
         break;
+      // == 没有载入的子应用
       case NOT_LOADED:
       case LOADING_SOURCE_CODE:
+        // ===== 未激活的子应用：加入待载入队列
         if (appShouldBeActive) {
           appsToLoad.push(app);
         }
         break;
+      // == 没有初始化或没有挂载的子应用
       case NOT_BOOTSTRAPPED:
       case NOT_MOUNTED:
         if (!appShouldBeActive && getAppUnloadInfo(toName(app))) {
+          // ======= 未激活的、同时再次载入失败过的子应用：加入未载入队列
           appsToUnload.push(app);
         } else if (appShouldBeActive) {
+          // ======= 激活的子应用：加入待挂载队列
           appsToMount.push(app);
         }
         break;
+      // == 已经挂载的子应用
       case MOUNTED:
         if (!appShouldBeActive) {
+          // ======= 未激活的子应用：加入待卸载队列
           appsToUnmount.push(app);
         }
         break;
@@ -401,6 +413,7 @@ export function getAppChanges() {
     }
   });
 
+   // == 未载入、待卸载、待载入、已挂载的子应用
   return { appsToUnload, appsToUnmount, appsToLoad, appsToMount };
 }
 
@@ -413,6 +426,7 @@ export function getRawAppData() {
   return [...apps];
 }
 
+// == 获取子应用为 appName 的应用状态
 export function getAppStatus(appName) {
   const app = find(apps, (app) => toName(app) === appName);
   return app ? app.status : null;

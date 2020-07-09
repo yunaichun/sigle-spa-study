@@ -9,7 +9,8 @@ import { handleAppError } from "../applications/app-errors.js";
 import { reasonableTime } from "../applications/timeouts.js";
 
 const appsToUnload = {};
-
+ 
+// == 返回 Promise 对象：轮循子应用的 unload 生命周期
 export function toUnloadPromise(app) {
   return Promise.resolve().then(() => {
     const unloadInfo = appsToUnload[toName(app)];
@@ -20,6 +21,7 @@ export function toUnloadPromise(app) {
       return app;
     }
 
+    // == 之前已经 NOT_LOADED 过
     if (app.status === NOT_LOADED) {
       /* This app is already unloaded. We just need to clean up
        * anything that still thinks we need to unload the app.
@@ -42,6 +44,7 @@ export function toUnloadPromise(app) {
     }
 
     app.status = UNLOADING;
+    // == 轮循 unload 操作
     return reasonableTime(app, "unload")
       .then(() => {
         finishUnloadingApp(app, unloadInfo);
@@ -54,6 +57,7 @@ export function toUnloadPromise(app) {
   });
 }
 
+// == 清理现场
 function finishUnloadingApp(app, unloadInfo) {
   delete appsToUnload[toName(app)];
 
@@ -71,6 +75,7 @@ function finishUnloadingApp(app, unloadInfo) {
   unloadInfo.resolve();
 }
 
+// == 错误处理
 function errorUnloadingApp(app, unloadInfo, err) {
   delete appsToUnload[toName(app)];
 
@@ -84,6 +89,7 @@ function errorUnloadingApp(app, unloadInfo, err) {
   unloadInfo.reject(err);
 }
 
+// == 子应用上面挂载 app 和 promise 属性
 export function addAppToUnload(app, promiseGetter, resolve, reject) {
   appsToUnload[toName(app)] = { app, resolve, reject };
   Object.defineProperty(appsToUnload[toName(app)], "promise", {
@@ -91,6 +97,7 @@ export function addAppToUnload(app, promiseGetter, resolve, reject) {
   });
 }
 
+// == 返回未载入的 子应用
 export function getAppUnloadInfo(appName) {
   return appsToUnload[appName];
 }

@@ -29,8 +29,10 @@ export function triggerAppChange() {
 }
 
 export function reroute(pendingPromises = [], eventArguments) {
+  // == 1、应用改变的话
   if (appChangeUnderway) {
     return new Promise((resolve, reject) => {
+      // == 加入队列
       peopleWaitingOnAppChange.push({
         resolve,
         reject,
@@ -39,6 +41,7 @@ export function reroute(pendingPromises = [], eventArguments) {
     });
   }
 
+  // == 2、应用未改变的话：获取未载入、待卸载、待载入、已挂载的子应用
   const {
     appsToUnload,
     appsToUnmount,
@@ -47,7 +50,9 @@ export function reroute(pendingPromises = [], eventArguments) {
   } = getAppChanges();
   let appsThatChanged;
 
+  
   if (isStarted()) {
+    // == 返回 started 值。初始化后为 true
     appChangeUnderway = true;
     appsThatChanged = appsToUnload.concat(
       appsToLoad,
@@ -56,27 +61,12 @@ export function reroute(pendingPromises = [], eventArguments) {
     );
     return performAppChanges();
   } else {
+    // == 初始化前为 false 
     appsThatChanged = appsToLoad;
     return loadApps();
   }
 
-  function loadApps() {
-    return Promise.resolve().then(() => {
-      const loadPromises = appsToLoad.map(toLoadPromise);
-
-      return (
-        Promise.all(loadPromises)
-          .then(callAllEventListeners)
-          // there are no mounted apps, before start() is called, so we always return []
-          .then(() => [])
-          .catch((err) => {
-            callAllEventListeners();
-            throw err;
-          })
-      );
-    });
-  }
-
+  // == 主路由已经执行过 start 函数
   function performAppChanges() {
     return Promise.resolve().then(() => {
       // https://github.com/single-spa/single-spa/issues/545
@@ -95,6 +85,7 @@ export function reroute(pendingPromises = [], eventArguments) {
           getCustomEventDetail(true)
         )
       );
+      // == 返回 Promise 对象：轮循子应用的 unload 生命周期
       const unloadPromises = appsToUnload.map(toUnloadPromise);
 
       const unmountUnloadPromises = appsToUnmount
@@ -151,6 +142,23 @@ export function reroute(pendingPromises = [], eventArguments) {
             })
             .then(finishUpAndReturn);
         });
+    });
+  }
+
+  function loadApps() {
+    return Promise.resolve().then(() => {
+      const loadPromises = appsToLoad.map(toLoadPromise);
+
+      return (
+        Promise.all(loadPromises)
+          .then(callAllEventListeners)
+          // there are no mounted apps, before start() is called, so we always return []
+          .then(() => [])
+          .catch((err) => {
+            callAllEventListeners();
+            throw err;
+          })
+      );
     });
   }
 
@@ -212,6 +220,7 @@ export function reroute(pendingPromises = [], eventArguments) {
     callCapturedEventListeners(eventArguments);
   }
 
+  // == 自定义事件传递的参数
   function getCustomEventDetail(isBeforeChanges = false) {
     const newAppStatuses = {};
     const appsByNewStatus = {
@@ -226,6 +235,7 @@ export function reroute(pendingPromises = [], eventArguments) {
     };
 
     if (isBeforeChanges) {
+      // == isBeforeChanges 为 true
       appsToLoad.concat(appsToMount).forEach((app, index) => {
         addApp(app, MOUNTED);
       });
@@ -236,22 +246,27 @@ export function reroute(pendingPromises = [], eventArguments) {
         addApp(app, NOT_MOUNTED);
       });
     } else {
+      // == isBeforeChanges 为 false
       appsThatChanged.forEach((app) => {
         addApp(app);
       });
     }
 
+    // == 
     return {
       detail: {
-        newAppStatuses,
-        appsByNewStatus,
-        totalAppChanges: appsThatChanged.length,
+        newAppStatuses, // == 默认空对象
+        appsByNewStatus, // == 该比昂状态的子应用
+        totalAppChanges: appsThatChanged.length, // == 所有改变应用的长度
         originalEvent: eventArguments?.[0],
       },
     };
 
+    // == 将应用加入加入某一统一状态的应用队列中
     function addApp(app, status) {
+      // == 子应用名称
       const appName = toName(app);
+      // == 获取子应用为 appName 的应用状态
       status = status || getAppStatus(appName);
       newAppStatuses[appName] = status;
       const statusArr = (appsByNewStatus[status] =
