@@ -11,6 +11,7 @@ import { toUnmountPromise } from "./unmount.js";
 let beforeFirstMountFired = false;
 let firstMountFired = false;
 
+// == 返回 Promise 对象：轮循子应用的 mount 方法
 export function toMountPromise(appOrParcel, hardFail) {
   return Promise.resolve().then(() => {
     if (appOrParcel.status !== NOT_MOUNTED) {
@@ -26,6 +27,7 @@ export function toMountPromise(appOrParcel, hardFail) {
       .then(() => {
         appOrParcel.status = MOUNTED;
 
+        // == 只会分发一次事件
         if (!firstMountFired) {
           window.dispatchEvent(new CustomEvent("single-spa:first-mount"));
           firstMountFired = true;
