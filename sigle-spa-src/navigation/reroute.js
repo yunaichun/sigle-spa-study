@@ -106,12 +106,13 @@ export function reroute(pendingPromises = [], eventArguments) {
         );
       });
 
-      // == 返回 Promise 对象：挂载子应用 app 的 bootstrap、mount、unmount、unload 方法
       /* We load and bootstrap apps while other apps are unmounting, but we
-       * wait to mount the app until all apps are finishing unmounting
-       */
+      * wait to mount the app until all apps are finishing unmounting
+      */
+      // == 返回 Promise 对象：挂载子应用 app 的 bootstrap、mount、unmount、unload 方法
       const loadThenMountPromises = appsToLoad.map((app) => {
         return toLoadPromise(app).then((app) =>
+          // == bootstrap -> mount
           tryToBootstrapAndMount(app, unmountAllPromise)
         );
       });
@@ -120,11 +121,15 @@ export function reroute(pendingPromises = [], eventArguments) {
        * to be mounted. They each wait for all unmounting apps to finish up
        * before they mount.
        */
+      // == bootstrap -> mount
       const mountPromises = appsToMount
         .filter((appToMount) => appsToLoad.indexOf(appToMount) < 0)
         .map((appToMount) => {
+          // == bootstrap -> mount
           return tryToBootstrapAndMount(appToMount, unmountAllPromise);
         });
+
+      // == 
       return unmountAllPromise
         .catch((err) => {
           callAllEventListeners();
@@ -214,6 +219,7 @@ export function reroute(pendingPromises = [], eventArguments) {
    * We want to call the listeners in the same order as if they had not been delayed by
    * single-spa, which means queued ones first and then the most recent one.
    */
+  // == 调用捕获的事件侦听器：hashchange、popstate
   function callAllEventListeners() {
     pendingPromises.forEach((pendingPromise) => {
       callCapturedEventListeners(pendingPromise.eventArguments);
@@ -285,11 +291,13 @@ export function reroute(pendingPromises = [], eventArguments) {
  * twice if that application should be active before bootstrapping and mounting.
  * https://github.com/single-spa/single-spa/issues/524
  */
+// == bootstrap -> mount
 function tryToBootstrapAndMount(app, unmountAllPromise) {
   if (shouldBeActive(app)) {
     // == 返回 Promise 对象：轮循子应用的 bootstrap 方法
     return toBootstrapPromise(app).then((app) =>
       unmountAllPromise.then(() =>
+        // == 返回 Promise 对象：轮循子应用的 mount 方法
         shouldBeActive(app) ? toMountPromise(app) : app
       )
     );

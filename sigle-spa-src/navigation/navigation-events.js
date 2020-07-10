@@ -61,9 +61,11 @@ export function navigateToUrl(obj) {
   }
 }
 
+// == 调用捕获的事件侦听器：hashchange、popstate
 export function callCapturedEventListeners(eventArguments) {
   if (eventArguments) {
     const eventType = eventArguments[0].type;
+    // == 捕获 hashchange、popstate 事件
     if (routingEventsListeningTo.indexOf(eventType) >= 0) {
       capturedEventListeners[eventType].forEach((listener) => {
         try {

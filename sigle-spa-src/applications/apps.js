@@ -73,6 +73,7 @@ export function registerApplication(
   if (isInBrowser) {
     // == 假如有 jQuery  对包含或不包含 "hashchange" 或 "popstate" 的事件处理
     ensureJQuerySupport();
+    // == 根据路由挂载应用
     reroute();
   }
 }
