@@ -418,6 +418,7 @@ export function getAppChanges() {
   return { appsToUnload, appsToUnmount, appsToLoad, appsToMount };
 }
 
+// == 获取已经加载的子应用
 export function getMountedApps() {
   return apps.filter(isActive).map(toName);
 }

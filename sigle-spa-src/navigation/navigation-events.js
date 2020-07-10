@@ -82,8 +82,8 @@ export function callCapturedEventListeners(eventArguments) {
   }
 }
 
+// == 设置 urlRerouteOnly 的值
 let urlRerouteOnly;
-
 export function setUrlRerouteOnly(val) {
   urlRerouteOnly = val;
 }

@@ -5,11 +5,13 @@ import { isInBrowser } from "./utils/runtime-environment.js";
 
 let started = false;
 
+// == 主路由开始执行方法：在注册的时候已经执行 reroute 方法了
 export function start(opts) {
   started = true;
   if (opts && opts.urlRerouteOnly) {
     setUrlRerouteOnly(opts.urlRerouteOnly);
   }
+  // == 执行 reroute 方法
   if (isInBrowser) {
     reroute();
   }

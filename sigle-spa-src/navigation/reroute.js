@@ -52,7 +52,7 @@ export function reroute(pendingPromises = [], eventArguments) {
 
   
   if (isStarted()) {
-    // == 返回 started 值。初始化后为 true
+    // == 执行了 start 方法
     appChangeUnderway = true;
     appsThatChanged = appsToUnload.concat(
       appsToLoad,
@@ -61,9 +61,27 @@ export function reroute(pendingPromises = [], eventArguments) {
     );
     return performAppChanges();
   } else {
-    // == 初始化前为 false 
+    // == 没有执行 start 方法
     appsThatChanged = appsToLoad;
     return loadApps();
+  }
+
+  // == 主路由没有执行 start 方法
+  function loadApps() {
+    return Promise.resolve().then(() => {
+      const loadPromises = appsToLoad.map(toLoadPromise);
+
+      return (
+        Promise.all(loadPromises)
+          .then(callAllEventListeners)
+          // there are no mounted apps, before start() is called, so we always return []
+          .then(() => [])
+          .catch((err) => {
+            callAllEventListeners();
+            throw err;
+          })
+      );
+    });
   }
 
   // == 主路由已经执行过 start 函数
@@ -129,7 +147,7 @@ export function reroute(pendingPromises = [], eventArguments) {
           return tryToBootstrapAndMount(appToMount, unmountAllPromise);
         });
 
-      // == 
+      // == 最终返回：已经加载的子应用
       return unmountAllPromise
         .catch((err) => {
           callAllEventListeners();
@@ -152,27 +170,13 @@ export function reroute(pendingPromises = [], eventArguments) {
     });
   }
 
-  function loadApps() {
-    return Promise.resolve().then(() => {
-      const loadPromises = appsToLoad.map(toLoadPromise);
-
-      return (
-        Promise.all(loadPromises)
-          .then(callAllEventListeners)
-          // there are no mounted apps, before start() is called, so we always return []
-          .then(() => [])
-          .catch((err) => {
-            callAllEventListeners();
-            throw err;
-          })
-      );
-    });
-  }
-
+  // == 所有子应用状态更新完成后
   function finishUpAndReturn() {
+    // == 获取已经加载的子应用
     const returnValue = getMountedApps();
     pendingPromises.forEach((promise) => promise.resolve(returnValue));
 
+    // == 触发指定回调事件
     try {
       const appChangeEventName =
         appsThatChanged.length === 0
@@ -201,6 +205,7 @@ export function reroute(pendingPromises = [], eventArguments) {
      */
     appChangeUnderway = false;
 
+    // == 重新 reroute
     if (peopleWaitingOnAppChange.length > 0) {
       /* While we were rerouting, someone else triggered another reroute that got queued.
        * So we need reroute again.
