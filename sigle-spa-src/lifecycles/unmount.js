@@ -7,6 +7,7 @@ import {
 import { handleAppError, transformErr } from "../applications/app-errors.js";
 import { reasonableTime } from "../applications/timeouts.js";
 
+// == 返回 Promise 对象：轮循子应用的 unmount 方法
 export function toUnmountPromise(appOrParcel, hardFail) {
   return Promise.resolve().then(() => {
     if (appOrParcel.status !== MOUNTED) {
@@ -14,12 +15,14 @@ export function toUnmountPromise(appOrParcel, hardFail) {
     }
     appOrParcel.status = UNMOUNTING;
 
+    // == 遍历子应用的 parcels 属性
     const unmountChildrenParcels = Object.keys(
       appOrParcel.parcels
     ).map((parcelId) => appOrParcel.parcels[parcelId].unmountThisParcel());
 
     let parcelError;
 
+    // == 执行所有子应用的 unmountThisParcel 方法
     return Promise.all(unmountChildrenParcels)
       .then(unmountAppOrParcel, (parcelError) => {
         // There is a parcel unmount error
@@ -35,6 +38,7 @@ export function toUnmountPromise(appOrParcel, hardFail) {
       })
       .then(() => appOrParcel);
 
+    // == 轮循子应用 unmount 方法
     function unmountAppOrParcel() {
       // We always try to unmount the appOrParcel, even if the children parcels failed to unmount.
       return reasonableTime(appOrParcel, "unmount")

@@ -107,7 +107,7 @@ export function setUnloadMaxTime(time, dieOnTimeout, warningMillis) {
 
 // == 轮循 lifecycle 操作
 // == appOrParcel  -  当前子应用对象
-// == lifecycle    -  当前子应用的状态
+// == lifecycle    -  当前子应用的方法
 export function reasonableTime(appOrParcel, lifecycle) {
   const timeoutConfig = appOrParcel.timeouts[lifecycle];
   const warningPeriod = timeoutConfig.warningMillis;

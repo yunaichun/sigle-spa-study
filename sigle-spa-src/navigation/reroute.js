@@ -1,16 +1,16 @@
 import CustomEvent from "custom-event";
 import { isStarted } from "../start.js";
+import { toUnloadPromise } from "../lifecycles/unload.js";
+import { toUnmountPromise } from "../lifecycles/unmount.js";
 import { toLoadPromise } from "../lifecycles/load.js";
 import { toBootstrapPromise } from "../lifecycles/bootstrap.js";
 import { toMountPromise } from "../lifecycles/mount.js";
-import { toUnmountPromise } from "../lifecycles/unmount.js";
 import {
   getAppStatus,
   getAppChanges,
   getMountedApps,
 } from "../applications/apps.js";
 import { callCapturedEventListeners } from "./navigation-events.js";
-import { toUnloadPromise } from "../lifecycles/unload.js";
 import {
   toName,
   shouldBeActive,
@@ -85,17 +85,17 @@ export function reroute(pendingPromises = [], eventArguments) {
           getCustomEventDetail(true)
         )
       );
-      // == 返回 Promise 对象：轮循子应用的 unload 生命周期
+
+      // == 返回 Promise 对象：轮循子应用的 unload 方法
       const unloadPromises = appsToUnload.map(toUnloadPromise);
 
+      // == 返回 Promise 对象：轮循子应用的 unmount 方法
       const unmountUnloadPromises = appsToUnmount
         .map(toUnmountPromise)
         .map((unmountPromise) => unmountPromise.then(toUnloadPromise));
 
       const allUnmountPromises = unmountUnloadPromises.concat(unloadPromises);
-
       const unmountAllPromise = Promise.all(allUnmountPromises);
-
       unmountAllPromise.then(() => {
         window.dispatchEvent(
           new CustomEvent(

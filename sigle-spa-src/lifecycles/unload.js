@@ -10,7 +10,7 @@ import { reasonableTime } from "../applications/timeouts.js";
 
 const appsToUnload = {};
  
-// == 返回 Promise 对象：轮循子应用的 unload 生命周期
+// == 返回 Promise 对象：轮循子应用的 unload 方法
 export function toUnloadPromise(app) {
   return Promise.resolve().then(() => {
     const unloadInfo = appsToUnload[toName(app)];
@@ -44,7 +44,7 @@ export function toUnloadPromise(app) {
     }
 
     app.status = UNLOADING;
-    // == 轮循 unload 操作
+    // == 轮循子应用 unload 方法
     return reasonableTime(app, "unload")
       .then(() => {
         finishUnloadingApp(app, unloadInfo);
