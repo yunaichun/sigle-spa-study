@@ -170,6 +170,7 @@ export function reasonableTime(appOrParcel, lifecycle) {
   });
 }
 
+// == 超时合并：没有设置的添加上默认的
 export function ensureValidAppTimeouts(timeouts) {
   const result = {};
 

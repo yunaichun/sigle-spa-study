@@ -20,6 +20,7 @@ import {
 import { getProps } from "./prop.helpers.js";
 import { assign } from "../utils/assign.js";
 
+// == 返回 Promise 对象：挂载子应用的 bootstrap、mount、unmount、unload 方法
 export function toLoadPromise(app) {
   return Promise.resolve().then(() => {
     if (app.loadPromise) {
@@ -36,7 +37,10 @@ export function toLoadPromise(app) {
 
     return (app.loadPromise = Promise.resolve()
       .then(() => {
+        // == app.loadApp 指的是传进来的子应用的入口组件
         const loadPromise = app.loadApp(getProps(app));
+        
+        // == 非类 Promise 对象
         if (!smellsLikeAPromise(loadPromise)) {
           // The name of the app will be prepended to this error message inside of the handleAppError function
           isUserErr = true;
@@ -51,6 +55,8 @@ export function toLoadPromise(app) {
             )
           );
         }
+
+        // == 加载子应用的入口文件
         return loadPromise.then((val) => {
           app.loadErrorTime = null;
 
@@ -58,6 +64,7 @@ export function toLoadPromise(app) {
 
           let validationErrMessage, validationErrCode;
 
+          // == 子应用入口组件必须要 export 导入出来
           if (typeof appOpts !== "object") {
             validationErrCode = 34;
             if (__DEV__) {
@@ -65,6 +72,7 @@ export function toLoadPromise(app) {
             }
           }
 
+          // == 必须导出 bootstrap 方法
           if (!validLifecycleFn(appOpts.bootstrap)) {
             validationErrCode = 35;
             if (__DEV__) {
@@ -72,6 +80,7 @@ export function toLoadPromise(app) {
             }
           }
 
+          // == 必须导出 mount 方法
           if (!validLifecycleFn(appOpts.mount)) {
             validationErrCode = 36;
             if (__DEV__) {
@@ -79,6 +88,7 @@ export function toLoadPromise(app) {
             }
           }
 
+          // == 必须导出 unmount 方法
           if (!validLifecycleFn(appOpts.unmount)) {
             validationErrCode = 37;
             if (__DEV__) {
@@ -86,8 +96,8 @@ export function toLoadPromise(app) {
             }
           }
 
+          // == 存在错误则输出错误
           const type = objectType(appOpts);
-
           if (validationErrCode) {
             let appOptsStr;
             try {
@@ -110,6 +120,7 @@ export function toLoadPromise(app) {
             return app;
           }
 
+          // == 组件 devtools 配置
           if (appOpts.devtools && appOpts.devtools.overlays) {
             app.devtools.overlays = assign(
               {},
@@ -118,6 +129,7 @@ export function toLoadPromise(app) {
             );
           }
 
+          // == 向子应用上挂载方法
           app.status = NOT_BOOTSTRAPPED;
           app.bootstrap = flattenFnArray(appOpts, "bootstrap");
           app.mount = flattenFnArray(appOpts, "mount");
@@ -131,6 +143,7 @@ export function toLoadPromise(app) {
         });
       })
       .catch((err) => {
+        // == 抛错处理
         delete app.loadPromise;
 
         let newStatus;

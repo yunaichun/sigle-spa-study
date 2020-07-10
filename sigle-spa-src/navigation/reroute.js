@@ -94,6 +94,7 @@ export function reroute(pendingPromises = [], eventArguments) {
         .map(toUnmountPromise)
         .map((unmountPromise) => unmountPromise.then(toUnloadPromise));
 
+      // == 在挂载前执行 unload 和 unmount 方法
       const allUnmountPromises = unmountUnloadPromises.concat(unloadPromises);
       const unmountAllPromise = Promise.all(allUnmountPromises);
       unmountAllPromise.then(() => {
@@ -105,6 +106,7 @@ export function reroute(pendingPromises = [], eventArguments) {
         );
       });
 
+      // == 返回 Promise 对象：挂载子应用 app 的 bootstrap、mount、unmount、unload 方法
       /* We load and bootstrap apps while other apps are unmounting, but we
        * wait to mount the app until all apps are finishing unmounting
        */
