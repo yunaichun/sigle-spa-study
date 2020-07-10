@@ -7,6 +7,7 @@ import {
 import { reasonableTime } from "../applications/timeouts.js";
 import { handleAppError, transformErr } from "../applications/app-errors.js";
 
+// == 返回 Promise 对象：轮循子应用的 bootstrap 方法
 export function toBootstrapPromise(appOrParcel, hardFail) {
   return Promise.resolve().then(() => {
     if (appOrParcel.status !== NOT_BOOTSTRAPPED) {

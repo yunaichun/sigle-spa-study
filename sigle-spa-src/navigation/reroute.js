@@ -287,6 +287,7 @@ export function reroute(pendingPromises = [], eventArguments) {
  */
 function tryToBootstrapAndMount(app, unmountAllPromise) {
   if (shouldBeActive(app)) {
+    // == 返回 Promise 对象：轮循子应用的 bootstrap 方法
     return toBootstrapPromise(app).then((app) =>
       unmountAllPromise.then(() =>
         shouldBeActive(app) ? toMountPromise(app) : app
