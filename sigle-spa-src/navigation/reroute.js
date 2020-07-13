@@ -127,7 +127,7 @@ export function reroute(pendingPromises = [], eventArguments) {
       /* We load and bootstrap apps while other apps are unmounting, but we
       * wait to mount the app until all apps are finishing unmounting
       */
-      // == 返回 Promise 对象：挂载子应用 app 的 bootstrap、mount、unmount、unload 方法
+      // == 返回 Promise 对象：挂载子应用 app 的 load -> bootstrap -> mount 方法
       const loadThenMountPromises = appsToLoad.map((app) => {
         return toLoadPromise(app).then((app) =>
           // == bootstrap -> mount
