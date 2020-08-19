@@ -5,5 +5,5 @@
 ## 目录介绍
 
 - sigle-spa-src: 参考 [single-spa 官方仓库](https://github.com/single-spa/single-spa)
-- sigle-spa-react-src: 参考 [single-spa-react](https://github.com/single-spa/single-spa-react)
-- sigle-spa-vue-src: 参考 [single-spa-vue](https://github.com/single-spa/single-spa-vue)
+- sigle-spa-react-src: 参考 [single-spa-react 官方仓库](https://github.com/single-spa/single-spa-react)
+- sigle-spa-vue-src: 参考 [single-spa-vue 官方仓库](https://github.com/single-spa/single-spa-vue)
